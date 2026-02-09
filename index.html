@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CAC ULTIMATE | CLOUD</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #000000; color: #ffffff; font-family: 'Courier New', monospace; }
+        .box { border: 1px solid #333; background: #050505; }
+        .inp { background: #000; border: 1px solid #333; color: white; transition: 0.3s; }
+        .inp:focus { border-color: #fff; outline: none; }
+        .btn { background: #fff; color: #000; font-weight: bold; transition: 0.2s; }
+        .btn:hover { background: #ccc; }
+        .btn:disabled { background: #333; color: #666; cursor: not-allowed; }
+        .logs { height: 150px; overflow-y: auto; font-size: 12px; color: #666; border-top: 1px solid #222; }
+    </style>
+</head>
+<body class="h-screen flex items-center justify-center p-4">
+
+    <div class="w-full max-w-lg box p-8 rounded-none shadow-2xl relative">
+        <div class="absolute top-4 right-4 flex items-center gap-2">
+            <span class="text-xs text-gray-500" id="server-status-text">CONNECTING...</span>
+            <div id="server-dot" class="w-2 h-2 bg-red-600 rounded-full animate-pulse"></div>
+        </div>
+
+        <h1 class="text-2xl font-bold mb-1 tracking-tighter">CAC ULTIMATE</h1>
+        <p class="text-xs text-gray-500 mb-8">CLOUD EXTRACTION SUITE V4.0</p>
+
+        <div id="auth-screen">
+            <div class="mb-4">
+                <label class="text-xs text-gray-500 block mb-2">LICENSE KEY</label>
+                <input type="password" id="key-input" class="w-full inp p-3 text-sm" placeholder="XXXX-XXXX-XXXX">
+            </div>
+            <button onclick="login()" id="btn-login" class="w-full btn p-3 text-sm uppercase">Authenticate</button>
+            <p class="text-[10px] text-gray-600 mt-4 text-center">HWID: <span id="my-hwid">...</span></p>
+        </div>
+
+        <div id="dash-screen" class="hidden space-y-6">
+            <div class="flex border-b border-gray-800">
+                <button onclick="setTab('CREATOR_BATCH')" id="tab-creator" class="flex-1 py-2 text-xs text-white border-b border-white">CREATOR</button>
+                <button onclick="setTab('DUMP_LIST')" id="tab-dump" class="flex-1 py-2 text-xs text-gray-500">CODE LIST</button>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="text-xs text-gray-500 block mb-2" id="lbl-target">USERNAME</label>
+                    <input type="text" id="inp-target" class="w-full inp p-3 text-sm" placeholder="Target...">
+                </div>
+
+                <div>
+                    <label class="text-xs text-gray-500 block mb-2">OUTPUT FORMAT</label>
+                    <select id="inp-mode" class="w-full inp p-3 text-sm">
+                        <option value="SCRIPT">Studio Script (Command Bar)</option>
+                        <option value="AUTO">RBXMX Model (3D)</option>
+                        <option value="JSON">JSON Data</option>
+                    </select>
+                </div>
+
+                <button onclick="submit()" id="btn-submit" class="w-full btn p-3 text-sm uppercase">START PROCESS</button>
+            </div>
+
+            <div class="logs pt-4" id="console">
+                <div>> System initialized.</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // === PREENCHA AQUI ===
+        const KEY_BIN_ID = "69892e1143b1c97be96fd3d0"; 
+        const SERVER_BIN_ID = "695c0336d0ea881f40566e09"; 
+        const MASTER_KEY = "$2a$10$uZJCOClc7V9uwqnCnJbXyuHynJ7fX7Z0l32pHbznLAtpLbjX7ABwS";
+        // =====================
+
+        let SERVER_URL = null;
+        let CURRENT_TYPE = "CREATOR_BATCH";
+        
+        // GERA HWID DE NAVEGADOR
+        let HWID = localStorage.getItem("v_hwid");
+        if(!HWID) {
+            HWID = "WEB-" + Math.random().toString(36).substr(2, 9).toUpperCase();
+            localStorage.setItem("v_hwid", HWID);
+        }
+        document.getElementById('my-hwid').innerText = HWID;
+
+        // 1. CONECTAR AO PC (BUSCA NO JSONBIN)
+        async function connectServer() {
+            try {
+                let r = await fetch(`https://api.jsonbin.io/v3/b/${SERVER_BIN_ID}/latest`, {
+                    headers: {"X-Master-Key": MASTER_KEY}
+                });
+                let data = (await r.json()).record;
+                
+                // Verifica se o link funciona
+                let ping = await fetch(data.server_url + "/api/stats");
+                if(ping.ok) {
+                    SERVER_URL = data.server_url;
+                    document.getElementById('server-dot').className = "w-2 h-2 bg-green-600 rounded-full";
+                    document.getElementById('server-status-text').innerText = "CONNECTED";
+                    let stats = await ping.json();
+                    log(`Connected. Workers Idle: ${stats.idle}`);
+                }
+            } catch(e) {
+                log("Server offline or connecting...");
+            }
+        }
+
+        // 2. LOGIN COM SISTEMA DE KEY + HWID
+        async function login() {
+            const key = document.getElementById('key-input').value;
+            const btn = document.getElementById('btn-login');
+            
+            if(!SERVER_URL) return alert("Server Offline. Wait for connection.");
+            
+            btn.disabled = true;
+            btn.innerText = "CHECKING...";
+
+            try {
+                let r = await fetch(`https://api.jsonbin.io/v3/b/${KEY_BIN_ID}/latest`, {
+                    headers: {"X-Master-Key": MASTER_KEY}
+                });
+                let db = (await r.json()).record;
+                let user = db.users[key];
+
+                if(!user) throw "Invalid Key";
+
+                // Lógica de HWID
+                if(user.type === "admin") {
+                    // Admin passa direto
+                    enterDash();
+                } else {
+                    // User Normal
+                    if(!user.hwid || user.hwid === "PENDING") {
+                        // Vincula HWID Agora
+                        db.users[key].hwid = HWID;
+                        await updateKeyDB(db);
+                        enterDash();
+                    } else if (user.hwid === HWID) {
+                        // HWID Bate
+                        enterDash();
+                    } else {
+                        throw "HWID Mismatch (Key used on another browser)";
+                    }
+                }
+
+            } catch(e) {
+                alert(e);
+                btn.disabled = false;
+                btn.innerText = "AUTHENTICATE";
+            }
+        }
+
+        async function updateKeyDB(data) {
+            await fetch(`https://api.jsonbin.io/v3/b/${KEY_BIN_ID}`, {
+                method: "PUT",
+                headers: {"Content-Type": "application/json", "X-Master-Key": MASTER_KEY},
+                body: JSON.stringify(data)
+            });
+        }
+
+        function enterDash() {
+            document.getElementById('auth-screen').classList.add('hidden');
+            document.getElementById('dash-screen').classList.remove('hidden');
+        }
+
+        // 3. ENVIAR TAREFA
+        async function submit() {
+            const target = document.getElementById('inp-target').value;
+            const mode = document.getElementById('inp-mode').value;
+            
+            if(!target) return;
+            
+            document.getElementById('btn-submit').disabled = true;
+            log(`Sending request [${CURRENT_TYPE}]...`);
+
+            try {
+                let r = await fetch(SERVER_URL + "/api/request", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({ type: CURRENT_TYPE, target: target, mode: mode })
+                });
+                let d = await r.json();
+                
+                if(d.success) {
+                    log(`Task ID: ${d.task_id}. Waiting for worker...`);
+                    poll(d.task_id);
+                }
+            } catch(e) {
+                log("Network Error.");
+                document.getElementById('btn-submit').disabled = false;
+            }
+        }
+
+        async function poll(id) {
+            let interval = setInterval(async () => {
+                try {
+                    let r = await fetch(SERVER_URL + "/api/check/" + id);
+                    let d = await r.json();
+                    
+                    if(d.status === "completed") {
+                        clearInterval(interval);
+                        log("✅ DONE! Downloading...");
+                        window.location.href = SERVER_URL + "/download/" + d.filename;
+                        document.getElementById('btn-submit').disabled = false;
+                    }
+                } catch(e) {}
+            }, 2000);
+        }
+
+        function setTab(t) {
+            CURRENT_TYPE = t;
+            const c = document.getElementById('tab-creator');
+            const d = document.getElementById('tab-dump');
+            const l = document.getElementById('lbl-target');
+            
+            if(t === 'CREATOR_BATCH') {
+                c.className = "flex-1 py-2 text-xs text-white border-b border-white";
+                d.className = "flex-1 py-2 text-xs text-gray-500";
+                l.innerText = "USERNAME";
+            } else {
+                d.className = "flex-1 py-2 text-xs text-white border-b border-white";
+                c.className = "flex-1 py-2 text-xs text-gray-500";
+                l.innerText = "CODES (SPACE SEPARATED)";
+            }
+        }
+
+        function log(t) {
+            const c = document.getElementById('console');
+            c.innerHTML += `<div>> ${t}</div>`;
+            c.scrollTop = c.scrollHeight;
+        }
+
+        connectServer();
+        setInterval(connectServer, 20000);
+    </script>
+</body>
+</html>

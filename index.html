@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CAC CLOUD | JSON ONLY</title>
+<title>CAC CLOUD | DATA STREAM</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
     body { background-color: #050505; color: #eee; font-family: monospace; }
@@ -12,34 +12,35 @@
     .btn { background: #fff; color: #000; font-weight: bold; width: 100%; padding: 10px; cursor: pointer; }
     .btn:hover { background: #ccc; }
     .btn:disabled { background: #333; color: #666; cursor: not-allowed; }
-    .logs { height: 200px; overflow-y: auto; border-top: 1px solid #333; padding: 10px; font-size: 11px; color: #0f0; }
+    .logs { height: 150px; overflow-y: auto; border-top: 1px solid #333; padding: 10px; font-size: 11px; color: #0f0; }
 </style>
 </head>
 <body class="h-screen flex items-center justify-center p-4">
 
 <div class="w-full max-w-md box p-6">
     <div class="flex justify-between items-center mb-6">
-        <h1 class="text-xl font-bold">CAC CLOUD <span class="text-xs text-yellow-500">JSON</span></h1>
+        <h1 class="text-xl font-bold">CAC CLOUD <span class="text-xs text-blue-500">STREAM</span></h1>
         <div id="status-dot" class="w-3 h-3 bg-red-600 rounded-full"></div>
     </div>
 
     <div id="auth-screen">
         <input type="password" id="key-input" class="inp mb-4" placeholder="ACCESS KEY">
-        <button onclick="login()" id="btn-login" class="btn">CONNECT TO CLOUD</button>
+        <button onclick="login()" id="btn-login" class="btn">CONNECT</button>
     </div>
 
     <div id="dash-screen" class="hidden space-y-4">
         <div class="flex gap-2 text-xs mb-2">
             <button onclick="setType('CREATOR')" id="btn-creator" class="flex-1 bg-white text-black p-2 font-bold">CREATOR</button>
-            <button onclick="setType('CODES')" id="btn-codes" class="flex-1 border border-gray-700 text-gray-500 p-2">CODES LIST</button>
+            <button onclick="setType('CODES')" id="btn-codes" class="flex-1 border border-gray-700 text-gray-500 p-2">CODES</button>
         </div>
 
         <input type="text" id="target-input" class="inp" placeholder="Username...">
-        
         <button onclick="startTask()" id="btn-start" class="btn">REQUEST DUMP</button>
 
-        <div id="download-area" class="hidden mt-4">
-            <a id="dl-link" href="#" target="_blank" class="block text-center bg-green-600 text-white py-2 font-bold hover:bg-green-500">DOWNLOAD JSON</a>
+        <div id="result-area" class="hidden space-y-2 mt-4 border-t border-gray-800 pt-4">
+            <div class="text-xs text-center text-green-500 font-bold mb-2">SUCCESS! DATA RECEIVED</div>
+            <button onclick="downloadJSON()" class="w-full bg-green-600 text-white p-2 text-xs font-bold hover:bg-green-500">DOWNLOAD .JSON FILE</button>
+            <button onclick="copyJSON()" class="w-full border border-gray-600 text-gray-400 p-2 text-xs hover:bg-gray-900">COPY RAW DATA</button>
         </div>
 
         <div class="logs" id="console"></div>
@@ -47,13 +48,14 @@
 </div>
 
 <script>
-    // CONFIGURAÇÃO JSONBIN
     const BIN_ID_SERVER = "695c0336d0ea881f40566e09";
     const BIN_ID_KEYS = "69892e1143b1c97be96fd3d0";
     const MASTER_KEY = "$2a$10$uZJCOClc7V9uwqnCnJbXyuHynJ7fX7Z0l32pHbznLAtpLbjX7ABwS";
 
     let SERVER_URL = "";
     let CURRENT_TYPE = "CREATOR";
+    let LAST_DATA = null;
+    let LAST_FILENAME = "dump.json";
     let HWID = localStorage.getItem("hwid") || "WEB-" + Math.random().toString(36).substr(2, 9);
     localStorage.setItem("hwid", HWID);
 
@@ -67,52 +69,34 @@
         const key = document.getElementById('key-input').value;
         const btn = document.getElementById('btn-login');
         btn.disabled = true;
-        btn.innerText = "AUTHENTICATING...";
+        btn.innerText = "CONNECTING...";
 
         try {
-            // 1. Busca URL do Ngrok
-            log("Fetching Server URL...");
-            let r = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID_SERVER}/latest`, {
-                headers: {"X-Master-Key": MASTER_KEY}
-            });
+            let r = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID_SERVER}/latest`, {headers: {"X-Master-Key": MASTER_KEY}});
             let data = await r.json();
             SERVER_URL = data.record.server_url;
-            log(`Server found: ${SERVER_URL}`);
 
-            // 2. Verifica Key
-            log("Verifying Key...");
-            r = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID_KEYS}/latest`, {
-                headers: {"X-Master-Key": MASTER_KEY}
-            });
+            r = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID_KEYS}/latest`, {headers: {"X-Master-Key": MASTER_KEY}});
             data = await r.json();
             let user = data.record.users[key];
 
             if(!user) throw "Invalid Key";
-            if(user.type !== "admin" && user.hwid && user.hwid !== HWID) throw "HWID Mismatch";
+            if(user.type !== "admin" && user.hwid && user.hwid !== HWID) throw "HWID Error";
 
-            // Sucesso
             document.getElementById('auth-screen').classList.add('hidden');
             document.getElementById('dash-screen').classList.remove('hidden');
             document.getElementById('status-dot').className = "w-3 h-3 bg-green-500 rounded-full shadow-[0_0_10px_#0f0]";
-            
-            // Ping Server
             checkServer();
-
         } catch(e) {
             alert(e);
             btn.disabled = false;
-            btn.innerText = "CONNECT TO CLOUD";
+            btn.innerText = "CONNECT";
         }
     }
 
     async function checkServer() {
-        try {
-            await fetch(`${SERVER_URL}/api/stats`);
-            log("Connected to Python backend via Ngrok.");
-        } catch(e) {
-            log("⚠️ Backend seems offline (Ngrok tunnel error?)");
-            document.getElementById('status-dot').className = "w-3 h-3 bg-yellow-500 rounded-full";
-        }
+        try { await fetch(`${SERVER_URL}/api/stats`); log("Connected to Backend."); } 
+        catch(e) { log("Backend Offline."); document.getElementById('status-dot').className = "w-3 h-3 bg-red-500 rounded-full"; }
     }
 
     function setType(t) {
@@ -125,30 +109,25 @@
     async function startTask() {
         const target = document.getElementById('target-input').value;
         if(!target) return;
-
+        
         document.getElementById('btn-start').disabled = true;
-        document.getElementById('download-area').classList.add('hidden');
-        log("Sending task...");
+        document.getElementById('result-area').classList.add('hidden');
+        log("Sending Request...");
 
         try {
             let payloadTarget = target;
             if(CURRENT_TYPE === 'CODES') payloadTarget = target.split(" ");
 
             let r = await fetch(`${SERVER_URL}/api/request`, {
-                method: "POST",
-                headers: {"Content-Type": "application/json"},
+                method: "POST", headers: {"Content-Type": "application/json"},
                 body: JSON.stringify({ type: CURRENT_TYPE, target: payloadTarget })
             });
             let d = await r.json();
-            
             if(d.success) {
-                log(`Task ID: ${d.task_id}. Waiting for worker...`);
+                log(`Task ID: ${d.task_id.substr(0,6)}...`);
                 poll(d.task_id);
             }
-        } catch(e) {
-            log("Error sending task.");
-            document.getElementById('btn-start').disabled = false;
-        }
+        } catch(e) { log("Network Error"); document.getElementById('btn-start').disabled = false; }
     }
 
     function poll(tid) {
@@ -159,22 +138,39 @@
 
                 if(d.status === "COMPLETED") {
                     clearInterval(interval);
-                    log("✅ Task Finished!");
-                    document.getElementById('btn-start').disabled = false;
+                    log("✅ Done! Downloading Data...");
                     
-                    // Configura Download com Link do Ngrok
-                    let finalLink = `${SERVER_URL}${d.download_url}`;
-                    let linkBtn = document.getElementById('dl-link');
-                    linkBtn.href = finalLink;
-                    linkBtn.innerText = `DOWNLOAD JSON (${d.worker})`;
-                    document.getElementById('download-area').classList.remove('hidden');
+                    // AQUI ESTÁ A MÁGICA: Guardamos os dados no JS
+                    LAST_DATA = d.result_data; 
+                    LAST_FILENAME = `Dump_${tid.substr(0,8)}.json`;
+                    
+                    document.getElementById('btn-start').disabled = false;
+                    document.getElementById('result-area').classList.remove('hidden');
                 } else if (d.status === "PROCESSING") {
-                    log(`Processing by ${d.worker}...`);
+                    log(`Worker Working...`);
                 }
-            } catch(e) {
-                clearInterval(interval);
-            }
+            } catch(e) { clearInterval(interval); }
         }, 2000);
+    }
+
+    // GERA O ARQUIVO NO NAVEGADOR (SEM SERVER)
+    function downloadJSON() {
+        if(!LAST_DATA) return;
+        const blob = new Blob([JSON.stringify(LAST_DATA, null, 4)], {type: 'application/json'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = LAST_FILENAME;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        log("File Downloaded.");
+    }
+
+    function copyJSON() {
+        if(!LAST_DATA) return;
+        navigator.clipboard.writeText(JSON.stringify(LAST_DATA, null, 4));
+        log("Copied to Clipboard!");
     }
 </script>
 </body>

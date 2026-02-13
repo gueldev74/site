@@ -3,278 +3,376 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CAC CLOUD | FINAL</title>
+<title>CAC ULTIMATE | ARCHITECT</title>
 <script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@100;400;700&family=Space+Grotesk:wght@300;700&display=swap" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+
 <style>
-    body { background-color: #050505; color: #eee; font-family: monospace; }
-    .box { border: 1px solid #333; background: #0a0a0a; box-shadow: 0 0 20px #000; }
-    .inp { background: #000; border: 1px solid #333; color: white; width: 100%; padding: 12px; outline: none; transition: 0.3s; }
-    .inp:focus { border-color: #00ff00; }
-    .btn { background: #fff; color: #000; font-weight: bold; width: 100%; padding: 12px; cursor: pointer; transition: 0.2s; }
-    .btn:hover { background: #ddd; }
-    .btn:disabled { background: #333; color: #666; cursor: wait; }
-    .logs { height: 180px; overflow-y: auto; border-top: 1px solid #333; padding: 10px; font-size: 11px; color: #00ff00; background: #000; }
+    /* --- CORE AESTHETICS --- */
+    :root { --bg: #030303; --panel: #0a0a0a; --border: #1a1a1a; --acc: #ffffff; }
+    body { background-color: var(--bg); color: #888; font-family: 'JetBrains Mono', monospace; overflow: hidden; }
     
-    /* Scrollbar estilizada */
-    ::-webkit-scrollbar { width: 5px; }
-    ::-webkit-scrollbar-track { background: #000; }
+    /* UTILS */
+    .font-display { font-family: 'Space Grotesk', sans-serif; }
+    .glass { background: rgba(10, 10, 10, 0.8); backdrop-filter: blur(10px); }
+    .mono-box { border: 1px solid var(--border); background: var(--panel); transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); }
+    .mono-box:hover { border-color: #333; }
+    
+    /* INPUTS */
+    .clean-inp { 
+        background: transparent; border: none; border-bottom: 1px solid #333; 
+        color: white; width: 100%; padding: 15px 0; font-size: 14px; outline: none; transition: 0.3s; 
+    }
+    .clean-inp:focus { border-color: white; }
+    .clean-inp::placeholder { color: #333; text-transform: uppercase; font-size: 10px; letter-spacing: 2px; }
+
+    /* BUTTONS */
+    .btn-elite { 
+        background: white; color: black; border: 1px solid white; padding: 12px; 
+        font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; 
+        cursor: pointer; transition: 0.2s; position: relative; overflow: hidden;
+    }
+    .btn-elite:hover { background: black; color: white; }
+    .btn-elite:disabled { background: #222; border-color: #222; color: #555; cursor: not-allowed; }
+    
+    .tab-btn {
+        background: transparent; color: #444; border: 1px solid #222; padding: 10px;
+        font-size: 10px; text-transform: uppercase; cursor: pointer; transition: 0.3s;
+    }
+    .tab-btn.active { border-color: white; color: white; background: #080808; }
+
+    /* LOGS & SCROLL */
+    .logs-container { 
+        height: 200px; overflow-y: auto; font-size: 10px; color: #444; 
+        border-top: 1px solid #111; padding-top: 15px; mask-image: linear-gradient(to bottom, transparent, black 10%);
+    }
+    ::-webkit-scrollbar { width: 3px; }
     ::-webkit-scrollbar-thumb { background: #333; }
+    ::-webkit-scrollbar-track { background: transparent; }
+
+    /* ANIMATIONS */
+    @keyframes pulse-white { 0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(255, 255, 255, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); } }
+    .status-dot { width: 6px; height: 6px; border-radius: 50%; background: #333; transition: 0.5s; }
+    .status-dot.online { background: #fff; box-shadow: 0 0 10px #fff; animation: pulse-white 2s infinite; }
 </style>
 </head>
-<body class="h-screen flex items-center justify-center p-4">
+<body class="h-screen w-screen flex flex-col items-center justify-center relative">
 
-<div class="w-full max-w-md box p-6">
-    <div class="flex justify-between items-center mb-6 border-b border-gray-800 pb-4">
-        <div>
-            <h1 class="text-2xl font-bold tracking-tighter">CAC CLOUD</h1>
-            <p class="text-[10px] text-gray-500">DATA STREAM V7.0</p>
-        </div>
-        <div class="text-right">
-            <div id="status-text" class="text-[10px] text-gray-500">OFFLINE</div>
-            <div id="status-dot" class="w-2 h-2 bg-red-600 rounded-full inline-block ml-1"></div>
-        </div>
-    </div>
+    <div class="absolute inset-0 z-0 opacity-[0.03]" style="background-image: linear-gradient(#333 1px, transparent 1px), linear-gradient(90deg, #333 1px, transparent 1px); background-size: 40px 40px;"></div>
 
-    <div id="auth-screen">
-        <p class="text-xs text-gray-500 mb-2">AUTHENTICATION</p>
-        <input type="password" id="key-input" class="inp mb-4" placeholder="ENTER ACCESS KEY">
-        <button onclick="login()" id="btn-login" class="btn uppercase">Connect System</button>
-    </div>
-
-    <div id="dash-screen" class="hidden space-y-4">
-        <div class="flex gap-2 text-xs mb-2">
-            <button onclick="setType('CREATOR')" id="btn-creator" class="flex-1 bg-white text-black p-2 font-bold uppercase">Creator</button>
-            <button onclick="setType('CODES')" id="btn-codes" class="flex-1 border border-gray-700 text-gray-500 p-2 uppercase hover:border-white transition">Codes List</button>
-        </div>
-
-        <div>
-            <input type="text" id="target-input" class="inp" placeholder="Target Username...">
-        </div>
+    <div class="w-full max-w-lg z-10 p-6">
         
-        <button onclick="startTask()" id="btn-start" class="btn uppercase tracking-widest">Request Data Stream</button>
-
-        <div id="result-area" class="hidden space-y-2 mt-4 bg-gray-900 p-4 border border-green-900">
-            <div class="text-xs text-center text-green-400 font-bold mb-2 uppercase animate-pulse">✨ Stream Received Successfully</div>
-            
-            <div class="flex gap-2">
-                <button onclick="downloadJSON()" class="flex-1 bg-green-600 text-white p-3 text-xs font-bold hover:bg-green-500 uppercase">
-                    <i class="fas fa-download"></i> Download .JSON
-                </button>
-                <button onclick="copyJSON()" class="flex-1 border border-green-600 text-green-400 p-3 text-xs font-bold hover:bg-green-900 uppercase">
-                    Copy Data
-                </button>
+        <div class="flex justify-between items-end mb-12 select-none">
+            <div>
+                <h1 class="font-display text-4xl text-white font-bold tracking-tighter leading-none">CAC<br><span class="text-zinc-600">ULTIMATE</span></h1>
+                <p class="text-[9px] uppercase tracking-[0.3em] mt-2 text-zinc-500">Cloud Extraction Architecture</p>
             </div>
-            <p class="text-[9px] text-center text-gray-500 mt-1">File generated locally in browser memory.</p>
+            <div class="flex flex-col items-end">
+                <div class="flex items-center gap-2 mb-1">
+                    <span id="status-text" class="text-[9px] font-bold tracking-widest text-zinc-600">SYSTEM OFFLINE</span>
+                    <div id="status-dot" class="status-dot"></div>
+                </div>
+                <div class="text-[9px] text-zinc-800 font-mono">V7.2.0 STABLE</div>
+            </div>
         </div>
 
-        <div class="logs font-mono" id="console">
-            <div class="text-gray-500">> System Initialized.</div>
+        <div id="auth-layer" class="mono-box p-8">
+            <div class="mb-6">
+                <label class="text-[9px] uppercase tracking-widest text-zinc-500 block mb-2">Access Credentials</label>
+                <input type="password" id="key-input" class="clean-inp text-center tracking-[0.5em]" placeholder="•••• •••• ••••">
+            </div>
+            <button onclick="login()" id="btn-login" class="btn-elite w-full">INITIALIZE SESSION</button>
+        </div>
+
+        <div id="dash-layer" class="hidden animate-in fade-in zoom-in duration-500">
+            
+            <div class="flex gap-4 mb-8">
+                <button onclick="setTab('CREATOR')" id="tab-creator" class="tab-btn active flex-1">By Creator</button>
+                <button onclick="setTab('CODES')" id="tab-codes" class="tab-btn flex-1">Hex Codes</button>
+            </div>
+
+            <div class="mono-box p-8 mb-4 relative">
+                <div class="absolute top-4 right-4 text-[9px] text-zinc-700">TARGET PARAMETER</div>
+                <input type="text" id="target-input" class="clean-inp text-lg" placeholder="ENTER USERNAME">
+            </div>
+
+            <div class="flex gap-4 mb-4">
+                <button onclick="startTask()" id="btn-start" class="btn-elite flex-1">EXECUTE DUMP</button>
+            </div>
+
+            <div id="result-panel" class="hidden mono-box p-6 border-l-2 border-white mb-4">
+                <div class="flex justify-between items-center mb-4">
+                    <div>
+                        <div class="text-white text-xs font-bold tracking-widest">DATA PACKET READY</div>
+                        <div class="text-[9px] mt-1">Processed <span id="item-count" class="text-white">0</span> Outfits • Plugin Compatible</div>
+                    </div>
+                    <i class="fa-solid fa-check text-white"></i>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="downloadFormatted()" class="bg-zinc-900 hover:bg-zinc-800 text-white p-2 text-[10px] font-mono border border-zinc-800 transition">DOWNLOAD .JSON</button>
+                    <button onclick="copyFormatted()" class="bg-zinc-900 hover:bg-zinc-800 text-white p-2 text-[10px] font-mono border border-zinc-800 transition">COPY DATA</button>
+                </div>
+            </div>
+
+            <div class="logs-container font-mono" id="console">
+                <div class="mb-1">> Protocol initialized.</div>
+                <div class="mb-1 text-zinc-600">> Waiting for user input...</div>
+            </div>
         </div>
     </div>
-</div>
 
-<script>
-    // === CONFIGURAÇÃO (NÃO MEXER) ===
-    const BIN_ID_SERVER = "695c0336d0ea881f40566e09";
-    const BIN_ID_KEYS = "69892e1143b1c97be96fd3d0";
-    const MASTER_KEY = "$2a$10$uZJCOClc7V9uwqnCnJbXyuHynJ7fX7Z0l32pHbznLAtpLbjX7ABwS";
+    <script>
+        // CONFIGURAÇÕES DO SERVIDOR
+        const BIN_ID_SERVER = "695c0336d0ea881f40566e09";
+        const BIN_ID_KEYS = "69892e1143b1c97be96fd3d0";
+        const MASTER_KEY = "$2a$10$uZJCOClc7V9uwqnCnJbXyuHynJ7fX7Z0l32pHbznLAtpLbjX7ABwS";
 
-    let SERVER_URL = "";
-    let CURRENT_TYPE = "CREATOR";
-    let LAST_DATA = null;
-    let LAST_FILENAME = "dump.json";
-    // HWID Persistente
-    let HWID = localStorage.getItem("hwid_v7");
-    if (!HWID) {
-        HWID = "WEB-" + Math.random().toString(36).substr(2, 9).toUpperCase();
-        localStorage.setItem("hwid_v7", HWID);
-    }
-
-    // --- FUNÇÕES DE LOG ---
-    function log(msg, type = 'info') {
-        const c = document.getElementById('console');
-        const time = new Date().toLocaleTimeString().split(' ')[0];
-        let color = type === 'error' ? 'text-red-500' : (type === 'success' ? 'text-green-400' : 'text-gray-300');
-        c.innerHTML += `<div class="${color}"><span class="text-gray-600">[${time}]</span> ${msg}</div>`;
-        c.scrollTop = c.scrollHeight;
-    }
-
-    // --- LOGIN ---
-    async function login() {
-        const key = document.getElementById('key-input').value;
-        const btn = document.getElementById('btn-login');
-        if (!key) return alert("Please enter a key");
-
-        btn.disabled = true;
-        btn.innerText = "CONNECTING...";
-
-        try {
-            log("Fetching Server Topology...");
-            // 1. Pega URL do Ngrok
-            let r = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID_SERVER}/latest`, {headers: {"X-Master-Key": MASTER_KEY}});
-            let data = await r.json();
-            SERVER_URL = data.record.server_url;
-            
-            // 2. Verifica Chave
-            log("Verifying Credentials...");
-            r = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID_KEYS}/latest`, {headers: {"X-Master-Key": MASTER_KEY}});
-            data = await r.json();
-            let user = data.record.users[key];
-
-            if(!user) throw "Invalid Access Key";
-            // Admin pula check de HWID
-            if(user.type !== "admin" && user.hwid && user.hwid !== HWID) throw "HWID Mismatch (Key used elsewhere)";
-
-            // Sucesso
-            document.getElementById('auth-screen').classList.add('hidden');
-            document.getElementById('dash-screen').classList.remove('hidden');
-            
-            updateStatus(true);
-            log(`Connected to Core: ${SERVER_URL}`);
-            
-        } catch(e) {
-            alert(e);
-            btn.disabled = false;
-            btn.innerText = "CONNECT SYSTEM";
-            log(e, 'error');
-        }
-    }
-
-    function updateStatus(online) {
-        const dot = document.getElementById('status-dot');
-        const txt = document.getElementById('status-text');
-        if(online) {
-            dot.className = "w-2 h-2 bg-green-500 rounded-full inline-block ml-1 shadow-[0_0_8px_#0f0]";
-            txt.innerText = "ONLINE";
-            txt.className = "text-[10px] text-green-500 font-bold";
-        } else {
-            dot.className = "w-2 h-2 bg-red-600 rounded-full inline-block ml-1";
-            txt.innerText = "DISCONNECTED";
-            txt.className = "text-[10px] text-red-500";
-        }
-    }
-
-    // --- SISTEMA DE TAREFAS ---
-    function setType(t) {
-        CURRENT_TYPE = t;
-        const inp = document.getElementById('target-input');
-        inp.placeholder = t === 'CREATOR' ? "Target Username..." : "Hex Codes (Space Separated)...";
+        let SERVER_URL = "";
+        let CURRENT_TYPE = "CREATOR";
+        let RAW_DATA = null; // Guarda o JSON bagunçado que vem do Python
+        let PROCESSED_DATA = null; // Guarda o JSON limpo para o plugin
+        let LAST_FILENAME = "cac_ultimate.json";
         
-        document.getElementById('btn-creator').className = t === 'CREATOR' 
-            ? "flex-1 bg-white text-black p-2 font-bold uppercase" 
-            : "flex-1 border border-gray-700 text-gray-500 p-2 uppercase hover:border-white transition";
-        
-        document.getElementById('btn-codes').className = t === 'CODES' 
-            ? "flex-1 bg-white text-black p-2 font-bold uppercase" 
-            : "flex-1 border border-gray-700 text-gray-500 p-2 uppercase hover:border-white transition";
-    }
-
-    async function startTask() {
-        const target = document.getElementById('target-input').value;
-        if(!target) return log("Target is empty", 'error');
-
-        const btn = document.getElementById('btn-start');
-        btn.disabled = true;
-        document.getElementById('result-area').classList.add('hidden'); // Esconde resultado anterior
-        log(`Initiating Dump: ${target}...`);
-
-        try {
-            // Tratamento de input
-            let payloadTarget = target;
-            if(CURRENT_TYPE === 'CODES') {
-                payloadTarget = target.replace(/,/g, ' ').split(/\s+/).filter(x => x.length > 0);
-            }
-
-            // CORREÇÃO CRÍTICA 1: Header do Ngrok
-            let r = await fetch(`${SERVER_URL}/api/request`, {
-                method: "POST", 
-                headers: {
-                    "Content-Type": "application/json",
-                    "ngrok-skip-browser-warning": "true" 
-                },
-                body: JSON.stringify({ type: CURRENT_TYPE, target: payloadTarget })
-            });
-            
-            let d = await r.json();
-            if(d.success) {
-                log(`Task Created [ID: ${d.task_id.substr(0,6)}]`);
-                poll(d.task_id);
-            } else {
-                throw "Server rejected request";
-            }
-
-        } catch(e) {
-            log(`Network Error: ${e.message || e}`, 'error');
-            btn.disabled = false;
+        let HWID = localStorage.getItem("cac_hwid");
+        if (!HWID) {
+            HWID = "CAC-" + Math.random().toString(36).substr(2, 9).toUpperCase();
+            localStorage.setItem("cac_hwid", HWID);
         }
-    }
 
-    // --- POLLING IMORTAL ---
-    function poll(tid) {
-        let attempts = 0;
-        const interval = setInterval(async () => {
-            attempts++;
+        // --- SISTEMA DE LOGS ---
+        function log(msg, type = 'normal') {
+            const c = document.getElementById('console');
+            const time = new Date().toLocaleTimeString().split(' ')[0];
+            let colorClass = type === 'error' ? 'text-red-500' : (type === 'success' ? 'text-white' : 'text-zinc-500');
+            c.innerHTML += `<div class="${colorClass} mb-1"><span class="opacity-30">[${time}]</span> ${msg}</div>`;
+            c.scrollTop = c.scrollHeight;
+        }
+
+        // --- AUTH ---
+        async function login() {
+            const key = document.getElementById('key-input').value;
+            const btn = document.getElementById('btn-login');
+            
+            if(!key) return;
+            btn.disabled = true;
+            btn.innerText = "VERIFYING...";
+
             try {
-                // CORREÇÃO CRÍTICA 2: Bypass na tela de aviso do Ngrok
-                let r = await fetch(`${SERVER_URL}/api/status/${tid}`, {
-                    headers: { "ngrok-skip-browser-warning": "true" }
-                });
-                
-                if(!r.ok) throw `HTTP ${r.status}`;
-                
-                let d = await r.json();
+                // 1. Busca URL
+                let r = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID_SERVER}/latest`, {headers: {"X-Master-Key": MASTER_KEY}});
+                let data = await r.json();
+                SERVER_URL = data.record.server_url;
 
-                if(d.status === "COMPLETED" && d.result_data) {
-                    clearInterval(interval);
-                    log("✅ DATA STREAM RECEIVED!", 'success');
-                    
-                    // Salva na memória
-                    LAST_DATA = d.result_data;
-                    LAST_FILENAME = `CAC_Dump_${tid.substr(0,8)}.json`;
-                    
-                    // Libera UI
-                    document.getElementById('btn-start').disabled = false;
-                    document.getElementById('result-area').classList.remove('hidden');
-                    
-                } else if (d.status === "PROCESSING") {
-                    if(attempts % 5 === 0) log(`Worker is extracting data... (${d.worker || 'Unknown'})`);
-                } else if (d.status === "QUEUED") {
-                    if(attempts % 5 === 0) log(`Waiting for worker... (Pos: ${d.position})`);
-                }
+                // 2. Busca User
+                r = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID_KEYS}/latest`, {headers: {"X-Master-Key": MASTER_KEY}});
+                data = await r.json();
+                let user = data.record.users[key];
+
+                if(!user) throw "ACCESS DENIED";
+                if(user.type !== "admin" && user.hwid && user.hwid !== HWID) throw "HWID MISMATCH";
+
+                // Sucesso
+                document.getElementById('auth-layer').classList.add('hidden');
+                document.getElementById('dash-layer').classList.remove('hidden');
+                
+                document.getElementById('status-dot').classList.add('online');
+                document.getElementById('status-text').innerText = "SYSTEM ONLINE";
+                document.getElementById('status-text').className = "text-[9px] font-bold tracking-widest text-white";
+                
+                log(`Connected to Core Node: ${SERVER_URL}`, 'success');
 
             } catch(e) {
-                // Não cancela o polling se der erro temporário, apenas avisa
-                console.warn("Poll glitch:", e);
-                // Se der erro 10 vezes seguidas, aí sim para
-                if(attempts > 120) { 
-                    clearInterval(interval); 
-                    log("Timeout: Worker took too long.", 'error');
-                    document.getElementById('btn-start').disabled = false;
-                }
+                log(e, 'error');
+                btn.disabled = false;
+                btn.innerText = "INITIALIZE SESSION";
             }
-        }, 1500); // Checa a cada 1.5s
-    }
+        }
 
-    // --- DOWNLOAD & COPY ---
-    function downloadJSON() {
-        if(!LAST_DATA) return;
-        const blob = new Blob([JSON.stringify(LAST_DATA, null, 4)], {type: 'application/json'});
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = LAST_FILENAME;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        log("File saved to device.");
-    }
+        // --- TAB CONTROL ---
+        window.setTab = function(type) {
+            CURRENT_TYPE = type;
+            // UI Reset
+            document.getElementById('tab-creator').className = `tab-btn ${type === 'CREATOR' ? 'active' : ''}`;
+            document.getElementById('tab-codes').className = `tab-btn ${type === 'CODES' ? 'active' : ''}`;
+            document.getElementById('target-input').placeholder = type === 'CREATOR' ? "ENTER USERNAME" : "ENTER HEX CODES (SPACE SEPARATED)";
+            
+            // Logic Reset (Elite requirement)
+            resetDataUI();
+            log(`Mode switched to ${type}`);
+        }
 
-    function copyJSON() {
-        if(!LAST_DATA) return;
-        navigator.clipboard.writeText(JSON.stringify(LAST_DATA, null, 4))
-            .then(() => log("JSON copied to clipboard!", 'success'))
-            .catch(() => log("Failed to copy.", 'error'));
-    }
-</script>
+        function resetDataUI() {
+            RAW_DATA = null;
+            PROCESSED_DATA = null;
+            document.getElementById('result-panel').classList.add('hidden');
+            document.getElementById('btn-start').disabled = false;
+            document.getElementById('btn-start').innerText = "EXECUTE DUMP";
+        }
+
+        // --- CORE LOGIC ---
+        async function startTask() {
+            const target = document.getElementById('target-input').value;
+            if(!target) return log("Target undefined", 'error');
+
+            resetDataUI(); // Garante limpeza antes de começar
+            
+            const btn = document.getElementById('btn-start');
+            btn.disabled = true;
+            btn.innerText = "PROCESSING...";
+            log(`Requesting dump for: ${target}`);
+
+            try {
+                let payloadTarget = target;
+                if(CURRENT_TYPE === 'CODES') payloadTarget = target.replace(/,/g, ' ').split(/\s+/).filter(x => x);
+
+                let r = await fetch(`${SERVER_URL}/api/request`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "ngrok-skip-browser-warning": "true" },
+                    body: JSON.stringify({ type: CURRENT_TYPE, target: payloadTarget })
+                });
+                
+                let d = await r.json();
+                if(d.success) {
+                    log(`Task ID: ${d.task_id.substr(0,6)} initialized.`);
+                    poll(d.task_id);
+                } else throw "Server Rejected";
+
+            } catch(e) {
+                log("Connection Failure", 'error');
+                btn.disabled = false;
+                btn.innerText = "EXECUTE DUMP";
+            }
+        }
+
+        function poll(tid) {
+            const interval = setInterval(async () => {
+                try {
+                    let r = await fetch(`${SERVER_URL}/api/status/${tid}`, {headers: {"ngrok-skip-browser-warning": "true"}});
+                    let d = await r.json();
+
+                    if(d.status === "COMPLETED" && d.result_data) {
+                        clearInterval(interval);
+                        
+                        // AQUI ACONTECE A MÁGICA DE FORMATACAO
+                        RAW_DATA = d.result_data;
+                        processRawData(); 
+                        
+                        // Atualiza UI
+                        document.getElementById('btn-start').innerText = "EXECUTE DUMP";
+                        document.getElementById('btn-start').disabled = false;
+                        document.getElementById('result-panel').classList.remove('hidden');
+                        document.getElementById('item-count').innerText = PROCESSED_DATA.outfits.length;
+                        
+                        LAST_FILENAME = `CAC_${tid.substr(0,5)}.json`;
+                        log("Data received & formatted successfully.", 'success');
+                    }
+                } catch(e) { /* silent fail */ }
+            }, 1500);
+        }
+
+        // --- PROCESSADOR NEURAL (A Logica de Correção) ---
+        function processRawData() {
+            // Se o dado vier como string no JSON, parseia. Se ja for objeto, mantem.
+            let inputList = Array.isArray(RAW_DATA) ? RAW_DATA : [];
+            
+            let formattedOutfits = inputList.map(rawItem => {
+                // Mapeamento baseado na estrutura observada do "Items" array
+                const items = rawItem.Items || [];
+                
+                // 1. Acessorios (Indices 0-7)
+                let accessories = [];
+                for(let i=0; i<=7; i++) {
+                    if(items[i] && typeof items[i] === 'string' && items[i].length > 0) {
+                        let parts = items[i].split(',');
+                        parts.forEach(id => {
+                            if(id) accessories.push({ "AssetId": parseInt(id), "AccessoryType": "Unknown", "IsLayered": false });
+                        });
+                    } else if (items[i] && typeof items[i] === 'number' && items[i] > 0) {
+                         accessories.push({ "AssetId": items[i], "AccessoryType": "Unknown", "IsLayered": false });
+                    }
+                }
+
+                // 2. Cores do Corpo (Indices 15-20)
+                // Ordem padrao Roblox: Head, Torso, LA, RA, LL, RL (ou variações, vamos assumir padrao)
+                const parseColor = (str) => {
+                    if(!str || typeof str !== 'string') return {R:1, G:1, B:1};
+                    let rgb = str.split(',').map(n => parseInt(n)/255);
+                    return {R: rgb[0], G: rgb[1], B: rgb[2]};
+                };
+                let bodyColors = {
+                    "Head": parseColor(items[15]),
+                    "Torso": parseColor(items[16]),
+                    "LeftArm": parseColor(items[17]),
+                    "RightArm": parseColor(items[18]),
+                    "LeftLeg": parseColor(items[19]),
+                    "RightLeg": parseColor(items[20])
+                };
+
+                // 3. BodyParts e Roupas (Indices 21-30)
+                // Heuristica: Numeros gigantes (> 1 bilhao) sao Assets. 
+                // Precisariamos saber qual indice é qual, mas vamos colocar em BodyParts genericos se forem grandes
+                // O plugin alvo parece usar nomes especificos. Vamos tentar mapear o que der.
+                // Indice 22 tem "15093053680" (Shirt/Pants?)
+                // Indice 29, 30 tem numeros gigantes (BodyParts)
+                
+                let bodyParts = {
+                    "Head": items[29] || 0, // Chute baseado no exemplo
+                    "Torso": items[30] || 0,
+                    "RightArm": 0, "LeftArm": 0, "RightLeg": 0, "LeftLeg": 0
+                };
+                
+                let clothes = {
+                    "Shirt": items[22] || 0,
+                    "Pants": items[23] || 0,
+                    "Face": items[21] || 0,
+                    "GraphicTShirt": items[24] || 0
+                };
+
+                // 4. Scales (Indices 31-36)
+                let scales = {
+                    "BodyType": items[27] || 0, // As vezes é index diferente, mas vamos tentar
+                    "Head": items[33] || 1,
+                    "Height": items[32] || 1,
+                    "Width": items[36] || 1,
+                    "Depth": items[34] || 1,
+                    "Proportion": items[35] || 0
+                };
+
+                return {
+                    "QueueCode": "Passive Scan", // Valor padrao do plugin
+                    "RigType": rawItem.RigType || "R15",
+                    "Accessories": accessories,
+                    "BodyParts": bodyParts,
+                    "Clothes": clothes,
+                    "BodyColors": bodyColors,
+                    "Scales": scales,
+                    "OriginalName": rawItem.Name // Extra pra debug se quiser
+                };
+            });
+
+            PROCESSED_DATA = { "outfits": formattedOutfits };
+        }
+
+        // --- EXPORT FUNCTIONS ---
+        function downloadFormatted() {
+            if(!PROCESSED_DATA) return;
+            const blob = new Blob([JSON.stringify(PROCESSED_DATA, null, 4)], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = LAST_FILENAME;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            log("File downloaded.", 'success');
+        }
+
+        function copyFormatted() {
+            if(!PROCESSED_DATA) return;
+            navigator.clipboard.writeText(JSON.stringify(PROCESSED_DATA, null, 4));
+            log("Data copied to clipboard.", 'success');
+        }
+    </script>
 </body>
 </html>

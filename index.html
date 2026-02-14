@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -15,7 +14,7 @@
 body { background-color: var(--bg); color: #888; font-family: 'JetBrains Mono', monospace; overflow: hidden; }
 
 /* UTILS */
-.font-display { font-family: &#39;Space Grotesk&#39;, sans-serif; }
+.font-display { font-family: 'Space Grotesk', sans-serif; }
 .glass { background: rgba(10, 10, 10, 0.8); backdrop-filter: blur(10px); }
 .mono-box { border: 1px solid var(--border); background: var(--panel); transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); }
 .mono-box:hover { border-color: #333; }
@@ -43,9 +42,9 @@ body { background-color: var(--bg); color: #888; font-family: 'JetBrains Mono', 
 }
 .tab-btn.active { border-color: white; color: white; background: #080808; }
 
-/* LOGS &amp; SCROLL */
+/* LOGS & SCROLL */
 .logs-container { 
-    height: 200px; overflow-y: auto; font-size: 10px; color: #444; 
+    height: 150px; overflow-y: auto; font-size: 10px; color: #444; 
     border-top: 1px solid #111; padding-top: 15px; mask-image: linear-gradient(to bottom, transparent, black 10%);
 }
 ::-webkit-scrollbar { width: 3px; }
@@ -65,7 +64,7 @@ body { background-color: var(--bg); color: #888; font-family: 'JetBrains Mono', 
 
 <div class="w-full max-w-lg z-10 p-6">
     
-    <div class="flex justify-between items-end mb-12 select-none">
+    <div class="flex justify-between items-end mb-8 select-none">
         <div>
             <h1 class="font-display text-4xl text-white font-bold tracking-tighter leading-none">CAC<br><span class="text-zinc-600">ULTIMATE</span></h1>
             <p class="text-[9px] uppercase tracking-[0.3em] mt-2 text-zinc-500">Cloud Extraction Architecture</p>
@@ -75,7 +74,18 @@ body { background-color: var(--bg); color: #888; font-family: 'JetBrains Mono', 
                 <span id="status-text" class="text-[9px] font-bold tracking-widest text-zinc-600">SYSTEM OFFLINE</span>
                 <div id="status-dot" class="status-dot"></div>
             </div>
-            <div class="text-[9px] text-zinc-800 font-mono">V7.2.1 STABLE</div>
+            <div class="text-[9px] text-zinc-800 font-mono">V7.5 SECURE</div>
+        </div>
+    </div>
+
+    <div id="network-stats" class="hidden mb-6 flex gap-2">
+        <div class="mono-box flex-1 p-3 flex justify-between items-center">
+            <span class="text-[9px] uppercase tracking-widest">Active Workers</span>
+            <span id="worker-count" class="text-white font-bold text-xs">0</span>
+        </div>
+        <div class="mono-box flex-1 p-3 flex justify-between items-center">
+            <span class="text-[9px] uppercase tracking-widest">Queue Pos</span>
+            <span id="queue-pos" class="text-white font-bold text-xs">-</span>
         </div>
     </div>
 
@@ -88,6 +98,11 @@ body { background-color: var(--bg); color: #888; font-family: 'JetBrains Mono', 
     </div>
 
     <div id="dash-layer" class="hidden animate-in fade-in zoom-in duration-500">
+
+        <div id="license-info" class="hidden mb-6 mono-box p-3 flex justify-between items-center border-l-2 border-zinc-700">
+            <span class="text-[9px] uppercase tracking-widest text-zinc-500">LICENSE TIME</span>
+            <span id="time-remaining" class="text-white font-bold text-xs font-mono">CALCULATING...</span>
+        </div>
         
         <div class="flex gap-4 mb-8">
             <button onclick="setTab('CREATOR')" id="tab-creator" class="tab-btn active flex-1">By Creator</button>
@@ -127,19 +142,20 @@ body { background-color: var(--bg); color: #888; font-family: 'JetBrains Mono', 
 <script>
     // CONFIGURAÇÕES DO SERVIDOR
     const BIN_ID_SERVER = "695c0336d0ea881f40566e09";
-    const BIN_ID_KEYS = "69892e1143b1c97be96fd3d0";
+    const BIN_ID_KEYS = "69892e1143b1c97be96fd3d0"; // ID do JSON de Keys
     const MASTER_KEY = "$2a$10$uZJCOClc7V9uwqnCnJbXyuHynJ7fX7Z0l32pHbznLAtpLbjX7ABwS";
 
     let SERVER_URL = "";
     let CURRENT_TYPE = "CREATOR";
-    let RAW_DATA = null; // Guarda o JSON bagunçado que vem do Python
-    let PROCESSED_DATA = null; // Guarda o JSON limpo para o plugin
+    let RAW_DATA = null;
+    let PROCESSED_DATA = null;
     let LAST_FILENAME = "cac_ultimate.json";
     
-    let HWID = localStorage.getItem("cac_hwid");
+    // --- GERADOR DE HWID NO BROWSER ---
+    let HWID = localStorage.getItem("cac_hwid_v2");
     if (!HWID) {
-        HWID = "CAC-" + Math.random().toString(36).substr(2, 9).toUpperCase();
-        localStorage.setItem("cac_hwid", HWID);
+        HWID = "CAC-" + Math.random().toString(36).substr(2, 9).toUpperCase() + "-" + Date.now().toString(36).toUpperCase();
+        localStorage.setItem("cac_hwid_v2", HWID);
     }
 
     // --- SISTEMA DE LOGS ---
@@ -151,73 +167,204 @@ body { background-color: var(--bg); color: #888; font-family: 'JetBrains Mono', 
         c.scrollTop = c.scrollHeight;
     }
 
-    // --- AUTH ---
+    // --- FUNÇÃO DE TEMPO GLOBAL ---
+    async function getGlobalTime() {
+        try {
+            let r = await fetch('https://worldtimeapi.org/api/timezone/Etc/UTC');
+            let d = await r.json();
+            return d.datetime; 
+        } catch(e) {
+            return new Date().toISOString(); 
+        }
+    }
+
+    // --- AUTH & KEY SYSTEM ---
+    // --- FUNÇÃO DE CONTAGEM REGRESSIVA (NOVA) ---
+    function startCountdown(endDate) {
+        document.getElementById('license-info').classList.remove('hidden');
+        
+        const timer = setInterval(() => {
+            const now = new Date().getTime();
+            const distance = endDate.getTime() - now;
+
+            if (distance < 0) {
+                clearInterval(timer);
+                document.getElementById("time-remaining").innerText = "EXPIRED";
+                document.getElementById("time-remaining").classList.add("text-red-500");
+                alert("SESSION EXPIRED. Please refresh.");
+                location.reload();
+                return;
+            }
+
+            const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+
+            document.getElementById("time-remaining").innerText = `${days}d ${hours}h ${minutes}m`;
+        }, 1000);
+        
+        // Executa uma vez imediatamente para não esperar 1 seg
+        const now = new Date().getTime();
+        const distance = endDate.getTime() - now;
+        const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+        document.getElementById("time-remaining").innerText = `${days}d ${hours}h ${minutes}m`;
+    }
+
+    // --- SISTEMA DE LOGIN ATUALIZADO ---
     async function login() {
-        const key = document.getElementById('key-input').value;
+        const key = document.getElementById('key-input').value.trim();
         const btn = document.getElementById('btn-login');
         
         if(!key) return;
         btn.disabled = true;
-        btn.innerText = "VERIFYING...";
+        btn.innerText = "AUTHENTICATING...";
 
         try {
-            // 1. Busca URL
-            let r = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID_SERVER}/latest`, {headers: {"X-Master-Key": MASTER_KEY}});
-            let data = await r.json();
-            SERVER_URL = data.record.server_url;
+            // 1. Busca URL do Servidor
+            let rServer = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID_SERVER}/latest`, {headers: {"X-Master-Key": MASTER_KEY}});
+            let dataServer = await rServer.json();
+            SERVER_URL = dataServer.record.server_url;
 
-            // 2. Busca User
-            r = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID_KEYS}/latest`, {headers: {"X-Master-Key": MASTER_KEY}});
-            data = await r.json();
-            let user = data.record.users[key];
+            // 2. Busca Banco de Dados de Keys
+            let rKeys = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID_KEYS}/latest`, {headers: {"X-Master-Key": MASTER_KEY}});
+            let dataKeys = await rKeys.json();
+            let record = dataKeys.record;
+            let user = record.users[key];
 
-            if(!user) throw "ACCESS DENIED";
-            if(user.type !== "admin" && user.hwid && user.hwid !== HWID) throw "HWID MISMATCH";
+            // --- VALIDAÇÃO 1: KEY EXISTE? ---
+            if(!user) throw "KEY_NOT_FOUND";
 
-            // Sucesso
-            document.getElementById('auth-layer').classList.add('hidden');
-            document.getElementById('dash-layer').classList.remove('hidden');
-            
-            document.getElementById('status-dot').classList.add('online');
-            document.getElementById('status-text').innerText = "SYSTEM ONLINE";
-            document.getElementById('status-text').className = "text-[9px] font-bold tracking-widest text-white";
-            
-            log(`Connected to Core Node: ${SERVER_URL}`, 'success');
+            // Se for ADMIN, libera direto sem timer
+            if(user.type === "admin") {
+                log("Admin Access Granted.", 'success');
+                unlockInterface();
+                return;
+            }
+
+            const now = await getGlobalTime();
+            const nowTime = new Date(now).getTime();
+
+            // Pega o tempo definido no JSON (Se não tiver 'time', assume 1 dia por segurança)
+            const durationDays = user.time || 1;
+            const durationMs = durationDays * 24 * 60 * 60 * 1000;
+
+            // --- CENÁRIO A: KEY JÁ ATIVADA ANTERIORMENTE ---
+            if(user.start_date) {
+                const startDate = new Date(user.start_date).getTime();
+                const expirationDate = startDate + durationMs;
+
+                // Validação 2: Expirou?
+                if(nowTime > expirationDate) throw "KEY_EXPIRED";
+                
+                // Validação 3: HWID Bate?
+                if(user.hwid !== HWID) throw "HWID_MISMATCH";
+
+                // Sucesso: Inicia timer
+                startCountdown(new Date(expirationDate));
+
+            } else {
+                // --- CENÁRIO B: PRIMEIRA VEZ (ATIVAR) ---
+                log("First use detected. Activating key...", 'normal');
+                
+                user.hwid = HWID;
+                user.start_date = now; // Salva data atual ISO
+                
+                // Atualiza JSONBin
+                record.users[key] = user;
+                await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID_KEYS}`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json", "X-Master-Key": MASTER_KEY },
+                    body: JSON.stringify(record)
+                });
+
+                // Calcula expiração e inicia timer
+                const expirationDate = new Date(now).getTime() + durationMs;
+                startCountdown(new Date(expirationDate));
+                
+                log(`Key Bound to Device: ${HWID}`, 'success');
+            }
+
+            unlockInterface();
+            startStatsPolling();
 
         } catch(e) {
-            log(e, 'error');
+            let msg = "UNKNOWN ERROR";
+            
+            if(e === "KEY_NOT_FOUND") {
+                msg = "❌ The key is invalid or it does not exist.";
+            } 
+            else if(e === "KEY_EXPIRED") {
+                msg = "❌ Your key has expired.\nGet a new one.";
+            } 
+            else if(e === "HWID_MISMATCH") {
+                msg = "⚠️ The key exist but it's not linked on this browser.\n\n1. Try using the first browser you used to log in.\n2. Turn off VPN/PROXY\n3. If the error persists, please contact us on Discord so we can generate a new one. Also, please send proof of purchase.";
+            } else {
+                console.error(e);
+            }
+            
+            log(msg, 'error');
+            alert(msg); // Popup para o usuário ler com atenção
+            
             btn.disabled = false;
             btn.innerText = "INITIALIZE SESSION";
         }
     }
 
+    function unlockInterface() {
+        document.getElementById('auth-layer').classList.add('hidden');
+        document.getElementById('dash-layer').classList.remove('hidden');
+        document.getElementById('network-stats').classList.remove('hidden');
+        
+        document.getElementById('status-dot').classList.add('online');
+        document.getElementById('status-text').innerText = "SYSTEM ONLINE";
+        document.getElementById('status-text').className = "text-[9px] font-bold tracking-widest text-white";
+        
+        log(`Connected to Core Node: ${SERVER_URL}`, 'success');
+    }
+
     // --- TAB CONTROL ---
     window.setTab = function(type) {
         CURRENT_TYPE = type;
-        // UI Reset
         document.getElementById('tab-creator').className = `tab-btn ${type === 'CREATOR' ? 'active' : ''}`;
         document.getElementById('tab-codes').className = `tab-btn ${type === 'CODES' ? 'active' : ''}`;
         document.getElementById('target-input').placeholder = type === 'CREATOR' ? "ENTER USERNAME" : "ENTER HEX CODES (SPACE SEPARATED)";
-        
-        // Logic Reset
         resetDataUI();
-        log(`Mode switched to ${type}`);
     }
 
     function resetDataUI() {
         RAW_DATA = null;
         PROCESSED_DATA = null;
         document.getElementById('result-panel').classList.add('hidden');
-        document.getElementById('btn-start').disabled = false;
-        document.getElementById('btn-start').innerText = "EXECUTE DUMP";
+        // Não reseta o botão aqui se ele estiver em cooldown
+        const btn = document.getElementById('btn-start');
+        if (btn.innerText === "EXECUTE DUMP") {
+            btn.disabled = false;
+        }
     }
 
-    // --- CORE LOGIC ---
+    // --- WORKER & QUEUE STATS ---
+    function startStatsPolling() {
+        setInterval(async () => {
+            try {
+                let r = await fetch(`${SERVER_URL}/api/stats`, {headers: {"ngrok-skip-browser-warning": "true"}});
+                let d = await r.json();
+                
+                if(d) {
+                    document.getElementById('worker-count').innerText = d.active_workers || 0;
+                    document.getElementById('queue-pos').innerText = d.queue_size || 0;
+                }
+            } catch(e) {}
+        }, 5000); 
+    }
+
+    // --- CORE LOGIC (MODIFICADO PARA LIMITE DE 20) ---
     async function startTask() {
         const target = document.getElementById('target-input').value;
         if(!target) return log("Target undefined", 'error');
 
-        resetDataUI(); // Garante limpeza antes de começar
+        resetDataUI();
         
         const btn = document.getElementById('btn-start');
         btn.disabled = true;
@@ -226,7 +373,23 @@ body { background-color: var(--bg); color: #888; font-family: 'JetBrains Mono', 
 
         try {
             let payloadTarget = target;
-            if(CURRENT_TYPE === 'CODES') payloadTarget = target.replace(/,/g, ' ').split(/\s+/).filter(x => x);
+
+            // LÓGICA DE LIMITE E CORTE (CODES)
+            if(CURRENT_TYPE === 'CODES') {
+                // Transforma string em array limpo
+                let allCodes = target.replace(/,/g, ' ').split(/\s+/).filter(x => x);
+                
+                // Verifica limite de 20
+                if (allCodes.length > 20) {
+                    alert(`⚠️ LIMIT REACHED\n\nTo ensure stability, max 20 codes allowed per batch.\nThe system will process only the first 20 codes.`);
+                    log(`Warning: Request trimmed from ${allCodes.length} to 20 codes.`, 'error');
+                    
+                    // Corta o array para os primeiros 20
+                    allCodes = allCodes.slice(0, 20);
+                }
+                
+                payloadTarget = allCodes;
+            }
 
             let r = await fetch(`${SERVER_URL}/api/request`, {
                 method: "POST",
@@ -241,7 +404,7 @@ body { background-color: var(--bg); color: #888; font-family: 'JetBrains Mono', 
             } else throw "Server Rejected";
 
         } catch(e) {
-            log("Connection Failure", 'error');
+            log("Connection Failure (Server Offline?)", 'error');
             btn.disabled = false;
             btn.innerText = "EXECUTE DUMP";
         }
@@ -255,54 +418,78 @@ body { background-color: var(--bg); color: #888; font-family: 'JetBrains Mono', 
 
                 if(d.status === "COMPLETED" && d.result_data) {
                     clearInterval(interval);
-                    
-                    // AQUI ESTAVA O ERRO! 
-                    // O Worker V9 já manda formatado, então não usamos o processador antigo.
                     RAW_DATA = d.result_data;
                     processRawData(); 
                     
-                    // Atualiza UI
-                    document.getElementById('btn-start').innerText = "EXECUTE DUMP";
-                    document.getElementById('btn-start').disabled = false;
+                    // Mostra Painel
                     document.getElementById('result-panel').classList.remove('hidden');
-                    document.getElementById('item-count').innerText = PROCESSED_DATA.outfits ? PROCESSED_DATA.outfits.length : 0;
+                    let itemCount = PROCESSED_DATA.outfits ? PROCESSED_DATA.outfits.length : 0;
+                    document.getElementById('item-count').innerText = itemCount;
                     
                     LAST_FILENAME = `CAC_${tid.substr(0,5)}.json`;
                     log("Data received successfully.", 'success');
+
+                    // --- ACIONA O COOLDOWN AO INVÉS DE LIBERAR IMEDIATAMENTE ---
+                    activateCooldown(itemCount);
                 }
-            } catch(e) { /* silent fail */ }
+            } catch(e) { }
         }, 1500);
     }
 
-    // --- CORREÇÃO: PROCESSADOR DE DADOS ---
-    function processRawData() {
-        // O Worker V9.0 (Hybrid) já envia o JSON formatado no padrão Elite.
-        // A estrutura que chega é: { "outfits": [...] }
-        // Então, simplesmente aceitamos o dado.
+    // --- NOVA FUNÇÃO DE COOLDOWN ---
+    function activateCooldown(count) {
+        const btn = document.getElementById('btn-start');
+        let seconds = 10; // Padrão mínimo
+
+        // Regras de Tempo (Baseado no pedido)
+        if (count <= 5) {
+            seconds = 10;
+        } else if (count <= 10) {
+            seconds = 15;
+        } else if (count <= 20) {
+            seconds = 30;
+        } else {
+            // Caso seja creator mode e venha muuuita coisa
+            seconds = 45; 
+        }
+
+        log(`Cooling down systems for ${seconds}s...`, 'normal');
         
+        btn.disabled = true;
+        
+        // Timer Visual
+        const timer = setInterval(() => {
+            btn.innerText = `COOLDOWN (${seconds}s)`;
+            seconds--;
+
+            if (seconds < 0) {
+                clearInterval(timer);
+                btn.innerText = "EXECUTE DUMP";
+                btn.disabled = false;
+                log("System cooled down. Ready.", 'success');
+            }
+        }, 1000);
+    }
+
+    function processRawData() {
         if(RAW_DATA && RAW_DATA.outfits) {
             PROCESSED_DATA = RAW_DATA;
         } else if (Array.isArray(RAW_DATA)) {
-            // Fallback raro: Se o Python mesclar errado e enviar array direto
             PROCESSED_DATA = { "outfits": RAW_DATA };
         } else {
-            // Se vier vazio ou nulo
             PROCESSED_DATA = { "outfits": [] };
         }
     }
 
-    // --- EXPORT FUNCTIONS ---
     function downloadFormatted() {
         if(!PROCESSED_DATA) return;
         const blob = new Blob([JSON.stringify(PROCESSED_DATA, null, 4)], {type: 'application/json'});
-        const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url;
+        a.href = URL.createObjectURL(blob);
         a.download = LAST_FILENAME;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        log("File downloaded.", 'success');
     }
 
     function copyFormatted() {
